@@ -28,28 +28,38 @@ router.get('/healthz', (ctx) => {
 
 // 2) WebSocket 网关回调：connect/disconnect/uplink 都会打到这里
 router.all('/websocket_callback', async (ctx) => {
-  const eventType = (ctx.get('x-tt-event-type') || '').toLowerCase(); // connect / disconnect / uplink
-  const raw = await readRawBody(ctx.req);
-  const rawLen = raw.length;
+  const eventType = (ctx.get('x-tt-event-type') || '').toLowerCase();
 
-  // 打日志：后面我们就靠这个确认“音频分片 uplink 到达后端”
-  console.log(
-    JSON.stringify({
-      tag: 'websocket_callback',
-      eventType,
-      rawLen,
-      contentType: ctx.get('content-type'),
-      // 有时网关会带一些 ws openid 等头，先一起打出来
-      headers: {
-        'x-tt-event-type': ctx.get('x-tt-event-type'),
-        'x-tt-ws-openids': ctx.get('x-tt-ws-openids'),
-      },
-    })
-  );
+  try {
+    if (eventType === 'uplink') {
+      const raw = await readRawBody(ctx.req);
+      console.log(
+        JSON.stringify({
+          tag: 'websocket_callback',
+          eventType,
+          rawLen: raw.length,
+          contentType: ctx.get('content-type')
+        })
+      );
+    } else {
+      // connect / disconnect 先不要读 body，先保证握手成功
+      console.log(
+        JSON.stringify({
+          tag: 'websocket_callback',
+          eventType
+        })
+      );
+    }
 
-  // 必须返回 success（最简单先这样）
-  ctx.status = 200;
-  ctx.body = { success: true };
+    ctx.status = 200;
+    ctx.type = 'text/plain; charset=utf-8';
+    ctx.body = 'success';   // 关键：先严格按官方示例返回纯文本 success
+  } catch (err: any) {
+    console.error('websocket_callback error:', err?.stack || err);
+    ctx.status = 200;
+    ctx.type = 'text/plain; charset=utf-8';
+    ctx.body = 'success';   // 先兜底，避免握手被 500 打断
+  }
 });
 
 app.use(router.routes()).use(router.allowedMethods());
