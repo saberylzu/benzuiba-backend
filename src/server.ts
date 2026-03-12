@@ -30,36 +30,17 @@ router.get('/healthz', (ctx) => {
 router.all('/websocket_callback', async (ctx) => {
   const eventType = (ctx.get('x-tt-event-type') || '').toLowerCase();
 
-  try {
-    if (eventType === 'uplink') {
-      const raw = await readRawBody(ctx.req);
-      console.log(
-        JSON.stringify({
-          tag: 'websocket_callback',
-          eventType,
-          rawLen: raw.length,
-          contentType: ctx.get('content-type')
-        })
-      );
-    } else {
-      // connect / disconnect 先不要读 body，先保证握手成功
-      console.log(
-        JSON.stringify({
-          tag: 'websocket_callback',
-          eventType
-        })
-      );
-    }
+  console.log(`eventType: ${eventType} tag: websocket_callback`);
 
-    ctx.status = 200;
-    ctx.type = 'text/plain; charset=utf-8';
-    ctx.body = 'success';   // 关键：先严格按官方示例返回纯文本 success
-  } catch (err: any) {
-    console.error('websocket_callback error:', err?.stack || err);
-    ctx.status = 200;
-    ctx.type = 'text/plain; charset=utf-8';
-    ctx.body = 'success';   // 先兜底，避免握手被 500 打断
-  }
+  // connect 阶段先不要读 body，也不要做任何复杂逻辑
+  // 先把握手跑通
+  ctx.status = 200;
+  ctx.type = 'application/json; charset=utf-8';
+  ctx.body = {
+    err_no: 0,
+    err_msg: 'success',
+    data: 'success'
+  };
 });
 
 app.use(router.routes()).use(router.allowedMethods());
