@@ -30,17 +30,41 @@ router.get('/healthz', (ctx) => {
 router.all('/websocket_callback', async (ctx) => {
   const eventType = (ctx.get('x-tt-event-type') || '').toLowerCase();
 
-  console.log(`eventType: ${eventType} tag: websocket_callback`);
+  if (eventType === 'uplink') {
+    const body = await readRawBody(ctx.req);
+    const text = body.toString('utf-8');
 
-  // connect 阶段先不要读 body，也不要做任何复杂逻辑
-  // 先把握手跑通
+    try {
+      const data = JSON.parse(text);
+      console.log(
+        JSON.stringify({
+          tag: 'websocket_callback',
+          eventType,
+          type: data.type,
+          seq: data.seq,
+          format: data.format,
+          sampleRate: data.sampleRate,
+          channels: data.channels,
+          audioBase64Len: data.audioBase64 ? data.audioBase64.length : 0,
+          isLastFrame: !!data.isLastFrame
+        })
+      );
+    } catch (e) {
+      console.log(
+        JSON.stringify({
+          tag: 'websocket_callback',
+          eventType,
+          rawTextPreview: text.slice(0, 200)
+        })
+      );
+    }
+  } else {
+    console.log(`eventType: ${eventType} tag: websocket_callback`);
+  }
+
   ctx.status = 200;
-  ctx.type = 'application/json; charset=utf-8';
-  ctx.body = {
-    err_no: 0,
-    err_msg: 'success',
-    data: 'success'
-  };
+  ctx.type = 'text/plain; charset=utf-8';
+  ctx.body = 'success';
 });
 
 app.use(router.routes()).use(router.allowedMethods());
