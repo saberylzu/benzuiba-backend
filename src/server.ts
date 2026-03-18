@@ -239,6 +239,35 @@ function ensureAsrSession() {
     }
   });
 
+  ws.on('unexpected-response', (_req: any, res: any) => {
+  let body = '';
+
+  res.on('data', (chunk: Buffer) => {
+    body += chunk.toString('utf8');
+  });
+
+  res.on('end', () => {
+    console.log(
+      JSON.stringify({
+        tag: 'asr_ws_unexpected_response',
+        connectId,
+        statusCode: res.statusCode,
+        statusMessage: res.statusMessage,
+        headers: res.headers,
+        body
+      })
+    );
+  });
+});
+  ws.on('upgrade', (res: any) => {
+  console.log(
+    JSON.stringify({
+      tag: 'asr_ws_upgrade',
+      connectId,
+      headers: res.headers
+    })
+  );
+});
   asrSession = {
     ws,
     connectId,
