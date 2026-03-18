@@ -220,7 +220,16 @@ function ensureAsrSession() {
 
   const connectId = randomUUID();
   const url = 'wss://openspeech.bytedance.com/api/v3/sauc/bigmodel';
-
+  console.log(
+  JSON.stringify({
+    tag: 'asr_connect_try',
+    url,
+    appid,
+    resourceId,
+    tokenPrefix: token ? token.slice(0, 8) : '',
+    tokenLen: token ? token.length : 0
+  })
+);
   const ws = new WebSocket(url, {
     headers: {
       'X-Api-App-Key': appid,
