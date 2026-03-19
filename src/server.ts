@@ -219,7 +219,9 @@ function ensureAsrSession() {
   }
 
   const connectId = randomUUID();
-  const url = 'wss://openspeech.bytedance.com/api/v3/sauc/bigmodel';
+  const url =
+  process.env.VOLC_ASR_WS_URL ||
+  'wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async';
   console.log(
   JSON.stringify({
     tag: 'asr_connect_try',
