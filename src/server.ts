@@ -172,7 +172,31 @@ type AsrSession = {
   opened: boolean;
   fullRequestAcked: boolean;
 };
+type AsrViewState = {
+  connectId: string;
+  partialText: string;
+  finalSegments: string[];
+  lastFinalSequence: number | null;
+  updatedAt: number;
+};
 
+let asrViewState: AsrViewState = {
+  connectId: '',
+  partialText: '',
+  finalSegments: [],
+  lastFinalSequence: null,
+  updatedAt: 0
+};
+
+function resetAsrViewState(connectId = '') {
+  asrViewState = {
+    connectId,
+    partialText: '',
+    finalSegments: [],
+    lastFinalSequence: null,
+    updatedAt: Date.now()
+  };
+}
 let asrSession: AsrSession | null = null;
 
 function closeAsrSession() {
@@ -222,6 +246,7 @@ function ensureAsrSession() {
   const url =
   process.env.VOLC_ASR_WS_URL ||
   'wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async';
+  resetAsrViewState(connectId);
   console.log(
   JSON.stringify({
     tag: 'asr_connect_try',
@@ -324,6 +349,23 @@ function ensureAsrSession() {
 
     const resultText = parsed.json?.result?.text || '';
     const utterances = parsed.json?.result?.utterances || [];
+    const definite = Array.isArray(utterances)
+      ? utterances.some((u: any) => !!u?.definite)
+      : false;
+
+    if (resultText) {
+      asrViewState.updatedAt = Date.now();
+
+      if (definite) {
+        if (parsed.sequence !== asrViewState.lastFinalSequence) {
+          asrViewState.finalSegments.push(resultText);
+          asrViewState.lastFinalSequence = parsed.sequence ?? null;
+        }
+        asrViewState.partialText = '';
+      } else {
+        asrViewState.partialText = resultText;
+      }
+    }
 
     console.log(
       JSON.stringify({
@@ -332,12 +374,9 @@ function ensureAsrSession() {
         sequence: parsed.sequence,
         text: resultText,
         utterancesCount: Array.isArray(utterances) ? utterances.length : 0,
-        definite: Array.isArray(utterances)
-          ? utterances.some((u: any) => !!u?.definite)
-          : false
+        definite
       })
     );
-  });
 
   ws.on('close', () => {
     console.log(
@@ -376,6 +415,17 @@ app.use(async (ctx, next) => {
 router.get('/healthz', (ctx) => {
   ctx.status = 200;
   ctx.body = 'ok';
+});
+
+router.get('/api/asr_result', (ctx) => {
+  ctx.status = 200;
+  ctx.body = {
+    connectId: asrViewState.connectId,
+    partialText: asrViewState.partialText,
+    finalSegments: asrViewState.finalSegments,
+    finalText: asrViewState.finalSegments.join(''),
+    updatedAt: asrViewState.updatedAt
+  };
 });
 
 router.all('/websocket_callback', async (ctx) => {
